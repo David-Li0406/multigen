@@ -19,7 +19,7 @@ python3 main.py \
 --seed 42 \
 --evaluate_metrics bleu \
 --overwrite_output_dir \
---num_train_epochs 8 \
+--num_train_epochs 3 \
 --learning_rate 1e-5 \
 --aggregate_method max \
 --alpha 3 \
@@ -28,4 +28,4 @@ python3 main.py \
 --weight_decay 0.0 \
 --warmup_ratio 0.0 \
 --logging_steps 20 \
---validate_steps 1000\
+--validate_steps 700\
