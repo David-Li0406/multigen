@@ -181,7 +181,7 @@ class MHDataset(Dataset):
 
         src_input_ids = []
         for s in src:
-            src_input_ids.extend([self.bos]+self.tokenizer.encode(defined_word)+[self.sep]+self.tokenizer.encode(src))
+            src_input_ids.extend([self.bos]+self.tokenizer.encode(defined_word)+[self.sep]+self.tokenizer.encode(s))
             # src_input_ids.extend(self.tokenizer.encode(' ' + s))
             src_input_ids.append(self.eos)
         src_position_ids = list(range(0, len(src_input_ids)))
