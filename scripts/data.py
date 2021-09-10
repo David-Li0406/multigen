@@ -41,6 +41,7 @@ class MHDataset(Dataset):
     def load(self):
         data_path = self.data_path
         self.source = []
+        self.defined_word = []
         self.source_kg = []
         self.target = []
         self.source_path = os.path.join(data_path, "source.csv")
@@ -49,6 +50,7 @@ class MHDataset(Dataset):
             csv_reader = csv.reader(csv_file, delimiter=',')
             for row_count, row in enumerate(csv_reader):
                 self.source.append(row[1:])
+                self.defined_word.append(row[2])
     
         count = 0
         self.target_path = os.path.join(data_path, "target.csv")
@@ -98,6 +100,7 @@ class MHDataset(Dataset):
     def __getitem__(self, idx):
         src = self.source[idx]
         tgt = self.target[idx]
+        defined_word = self.defined_word[idx]
         concept = self.concepts[idx]
         cpt_label = self.concepts_labels[idx]
         dist = self.distances[idx] #v3
@@ -177,7 +180,8 @@ class MHDataset(Dataset):
 
         src_input_ids = []
         for s in src:
-            src_input_ids.extend(self.tokenizer.encode(' ' + s))
+            src_input_ids.extend([self.bos]+self.tokenizer.encode(defined_word)+[self.sep]+self.tokenizer.encode(src))
+            # src_input_ids.extend(self.tokenizer.encode(' ' + s))
             src_input_ids.append(self.eos)
         src_position_ids = list(range(0, len(src_input_ids)))
 
