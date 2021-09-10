@@ -36,6 +36,7 @@ class MHDataset(Dataset):
         self.bos = self.tokenizer.encoder["<|bos|>"]
         self.pad = self.tokenizer.encoder["<|pad|>"]
         self.eos = self.tokenizer.encoder["<|endoftext|>"]
+        self.sep = self.tokenizer.encoder["<|sep|>"]
         self.data_path = data_path
     
     def load(self):
