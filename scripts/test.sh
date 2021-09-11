@@ -1,6 +1,6 @@
-export DATA_TYPE=DG_oxford4.0
+export DATA_TYPE=DG_oxford5.0
 export ROOT_PATH=..
-export DEVICE=3
+export DEVICE=1,2
 CUDA_VISIBLE_DEVICES=${DEVICE} \
 python3 main.py \
 --train_data_file ${ROOT_PATH}/data/${DATA_TYPE}/train \
