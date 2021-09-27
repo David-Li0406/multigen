@@ -705,9 +705,9 @@ class GPT2DoubleHeadsModel(GPT2PreTrainedModel):
 
         return outputs  # (lm loss), (mc loss), lm logits, mc logits, presents, (all hidden_states), (attentions)
 
-class GPTWithLoss(GPT2PreTrainedModel):
+class GPT2WithLoss(GPT2PreTrainedModel):
     def __init__(self, config, source_length=0, tokenizer=None):
-        super(MultiHopGen, self).__init__(config)
+        super(GPT2WithLoss, self).__init__(config)
         self.transformer = GPT2Model(config, source_length)
         self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
         self.tokenizer = tokenizer
@@ -736,7 +736,8 @@ class GPTWithLoss(GPT2PreTrainedModel):
         lm_prob_clamp = lm_prob.clamp(min=1e-5)
         gen_loss = gen_loss_fn(lm_prob_clamp.log().view(-1, lm_prob.size(-1)), labels.view(-1))
         
-        return gen_loss
+        # 让main.py处理loss时一致
+        return gen_loss, 0.0, 0.0, 0.0
 
     def generate(self, src_input_ids, attention_mask, src_position_ids, seq_generator):
         sample = {"input_ids": src_input_ids, "attention_mask": attention_mask, "position_ids": src_position_ids}

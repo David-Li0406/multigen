@@ -37,7 +37,7 @@ from collections import Counter
 from optimization import AdamW, WarmupLinearSchedule, WarmupCosineSchedule, WarmupConstantSchedule
      
 from tokenization_gpt2 import GPT2Tokenizer
-from modeling_gpt2 import MultiHopGen, GPT2Config
+from modeling_gpt2 import MultiHopGen, GPT2Config, GPT2WithLoss
 
 
 logger = logging.getLogger()
@@ -45,6 +45,10 @@ logger = logging.getLogger()
 
 MODEL_CLASSES = {
     'gpt2': (GPT2Config, MultiHopGen, GPT2Tokenizer)
+}
+
+MODEL_CLASSES_NO_MULTI_HOP = {
+    'gpt2': (GPT2Config, GPT2WithLoss, GPT2Tokenizer)
 }
 
 
@@ -213,22 +217,30 @@ def train(args, train_dataset, model, tokenizer):
 
             batch_size = batch[0].size(0)
             mem_size = batch[6].size(1)
-            batch = {"src_input_ids": batch[0], 
-                    "attention_mask": batch[1],
-                    "src_position_ids": batch[2],
-                    "target_input_ids": batch[3],
-                    "target_position_ids": batch[4],
-                    "labels": batch[5], 
-                    "concept_ids": batch[6], 
-                    "concept_label": batch[7],
-                    "distance": batch[8], #v3
-                    "head": batch[9], 
-                    "tail": batch[10],
-                    "relation": batch[11],
-                    "triple_label": batch[12],
-                    "vocab_map": batch[13], 
-                    "map_mask": batch[14], 
-                    "gate_label": batch[-1]}
+            if args.multi_hop:
+                batch = {"src_input_ids": batch[0], 
+                        "attention_mask": batch[1],
+                        "src_position_ids": batch[2],
+                        "target_input_ids": batch[3],
+                        "target_position_ids": batch[4],
+                        "labels": batch[5], 
+                        "concept_ids": batch[6], 
+                        "concept_label": batch[7],
+                        "distance": batch[8], #v3
+                        "head": batch[9], 
+                        "tail": batch[10],
+                        "relation": batch[11],
+                        "triple_label": batch[12],
+                        "vocab_map": batch[13], 
+                        "map_mask": batch[14], 
+                        "gate_label": batch[-1]}
+            else:
+                batch = {"src_input_ids": batch[0], 
+                        "attention_mask": batch[1],
+                        "src_position_ids": batch[2],
+                        "target_input_ids": batch[3],
+                        "target_position_ids": batch[4],
+                        "labels": batch[5]}
             
             batch_size = batch["src_input_ids"].size(0)
             
@@ -345,20 +357,26 @@ def evaluate(args, model, tokenizer, evaluate_metrics="ppl", prefix='0'):
             if evaluate_metrics == 'bleu':
                 batch_size = batch[0].size(0)
                 mem_size = batch[6].size(1)
-                batch = {"src_input_ids": batch[0], 
-                        "attention_mask": batch[1],
-                        "src_position_ids": batch[2],
-                        "concept_ids": batch[6], 
-                        "concept_label": batch[7],
-                        "distance": batch[8], #v3
-                        "head": batch[9], 
-                        "tail": batch[10],
-                        "relation": batch[11],
-                        "triple_label": batch[12],
-                        "vocab_map": batch[13], 
-                        "map_mask": batch[14],
-                        "seq_generator": generator}
-
+                if args.multi_hop:
+                    batch = {"src_input_ids": batch[0], 
+                            "attention_mask": batch[1],
+                            "src_position_ids": batch[2],
+                            "concept_ids": batch[6], 
+                            "concept_label": batch[7],
+                            "distance": batch[8], #v3
+                            "head": batch[9], 
+                            "tail": batch[10],
+                            "relation": batch[11],
+                            "triple_label": batch[12],
+                            "vocab_map": batch[13], 
+                            "map_mask": batch[14],
+                            "seq_generator": generator}
+                else:
+                    batch = {"src_input_ids": batch[0], 
+                            "attention_mask": batch[1],
+                            "src_position_ids": batch[2],
+                            "seq_generator": generator}
+                            
                 hypos = model.generate(**batch)
                 gen_seqs.extend(hypos)
 
@@ -573,9 +591,12 @@ def main():
     if args.local_rank not in [-1, 0]:
         torch.distributed.barrier()  # Barrier to make sure only the first process in distributed training download model & vocab
 
-    config_class, model_class, tokenizer_class = MODEL_CLASSES[args.model_type]
-    tokenizer = tokenizer_class.from_pretrained(args.model_name_or_path, do_lower_case=False)
-
+    if args.multi_hop:
+        config_class, model_class, tokenizer_class = MODEL_CLASSES[args.model_type]
+        tokenizer = tokenizer_class.from_pretrained(args.model_name_or_path, do_lower_case=False)
+    else:
+        config_class, model_class, tokenizer_class = MODEL_CLASSES_NO_MULTI_HOP[args.model_type]
+        tokenizer = tokenizer_class.from_pretrained(args.model_name_or_path, do_lower_case=False)
     
     model = model_class.from_pretrained(load_from_path, 
                                     source_length=args.source_length, 
