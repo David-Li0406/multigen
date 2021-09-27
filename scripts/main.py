@@ -531,6 +531,7 @@ def main():
                         help="For distributed training: local_rank")
     parser.add_argument('--server_ip', type=str, default='', help="For distant debugging.")
     parser.add_argument('--server_port', type=str, default='', help="For distant debugging.")
+    parser.add_argument('--multi_hop', type=bool, default=False, help="Using multi hop module or not")
     args = parser.parse_args()
 
     if args.model_type in ["bert", "roberta", "distilbert"] and not args.mlm:
@@ -581,7 +582,8 @@ def main():
                                     gamma=args.gamma, 
                                     alpha=args.alpha, 
                                     aggregate_method=args.aggregate_method,
-                                    tokenizer=tokenizer,)                           
+                                    tokenizer=tokenizer,
+                                    multi_hop=args.multi_hop)                           
 
 
     
