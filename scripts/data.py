@@ -7,7 +7,7 @@ import itertools
 from torch.utils.data import Dataset
 import random
 
-from transformers import BertTokenizer
+#from transformers import BertTokenizer
 
 logger = logging.getLogger()
 

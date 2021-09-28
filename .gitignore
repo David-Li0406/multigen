@@ -1,2 +1,6 @@
 data/
-models/
+__pycache__
+/models
+train.sh
+test.sh
+
