@@ -36,7 +36,7 @@ from torch_scatter import scatter_max, scatter_mean, scatter_add
 from transformers.modeling_utils import PreTrainedModel, Conv1D, prune_conv1d_layer, SequenceSummary
 from transformers.configuration_gpt2 import GPT2Config
 from transformers.file_utils import add_start_docstrings
-from transformers import BertModel, BertConfig
+from transformers import BartModel, BartConfig, BartPretrainedModel
 
 import numpy as np
 
@@ -707,10 +707,10 @@ class GPT2DoubleHeadsModel(GPT2PreTrainedModel):
 
 
 
-class MultiHopGen(GPT2PreTrainedModel):
+class MultiHopGen(BartPretrainedModel):
     def __init__(self, config, source_length=0, gamma=0.8, alpha=1, beta=1, aggregate_method="max", tokenizer=None, hop_number=2):
         super(MultiHopGen, self).__init__(config)
-        self.transformer = GPT2Model(config, source_length)
+        self.bart = BartModel(config)
 
         self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
         self.hop_number = hop_number
@@ -733,7 +733,8 @@ class MultiHopGen(GPT2PreTrainedModel):
         self.relation_embd = nn.Embedding(40, config.n_embd)
 
         self.init_weights()
-        self.tie_weights()
+        # self.tie_weights()
+        self.bart.set_input_embeddings(self.lm_head)
 
     def tie_weights(self):
         """ Make sure we are sharing the input and output embeddings.
@@ -741,7 +742,7 @@ class MultiHopGen(GPT2PreTrainedModel):
         """
         logger.info("Tie weights in head!!!!!")
         self._tie_or_clone_weights(self.lm_head,
-                                   self.transformer.wte)
+                                   self.bart.embed_tokens)
     
 
     def multi_layer_comp_gcn(self, concept_hidden, relation_hidden, head, tail, concept_label, triple_label, layer_number=2):
@@ -883,7 +884,8 @@ class MultiHopGen(GPT2PreTrainedModel):
         bsz = src_input_ids.size(0)
         mem_size = concept_ids.size(1)
 
-        memory = self.transformer.wte(concept_ids)
+        # memory = self.transformer.wte(concept_ids)
+        memory = self.bart.embed_tokens(concept_ids)
 
         rel_repr = self.relation_embd(relation)
 
@@ -900,9 +902,12 @@ class MultiHopGen(GPT2PreTrainedModel):
         '''
         assert(not torch.isnan(triple_repr).any().item())
 
-        input_ids = torch.cat([src_input_ids, target_input_ids], dim=1)
-        attention_mask = torch.cat([attention_mask, torch.ones_like(target_input_ids).to(target_input_ids.device)], dim=1)
-        position_ids = torch.cat([src_position_ids, target_position_ids], dim=1)
+        # input_ids = torch.cat([src_input_ids, target_input_ids], dim=1)
+        # attention_mask = torch.cat([attention_mask, torch.ones_like(target_input_ids).to(target_input_ids.device)], dim=1)
+        # position_ids = torch.cat([src_position_ids, target_position_ids], dim=1)
+
+        input_ids = src_input_ids
+        decoder_input_ids = target_input_ids
 
 
         gate_mask = (gate_label != -1).float()
@@ -916,7 +921,7 @@ class MultiHopGen(GPT2PreTrainedModel):
 
         hybrid_probs, gate, triple_score = self.autoreg_forward(input_ids, 
                             attention_mask, 
-                            position_ids, 
+                            decoder_input_ids, 
                             memory_dict={"triple_repr": triple_repr,
                                         "distance": distance,
                                         "head": head,
@@ -971,7 +976,7 @@ class MultiHopGen(GPT2PreTrainedModel):
         # bsz x mem_triple x hidden
         triple_repr = torch.cat((head_repr, rel_repr, tail_repr), dim=-1)
         
-        sample = {"input_ids": src_input_ids, "attention_mask": attention_mask, "position_ids": src_position_ids}
+        sample = {"input_ids": src_input_ids, "attention_mask": attention_mask}
         memory = {"triple_repr": triple_repr,
                                         "distance": distance,
                                         "head": head,
@@ -984,7 +989,7 @@ class MultiHopGen(GPT2PreTrainedModel):
         return seq_generator.generate(self.autoreg_forward, sample, memory)
 
 
-    def autoreg_forward(self, input_ids, attention_mask, position_ids, memory_dict, do_generate=False, lm_mask=None):
+    def autoreg_forward(self, input_ids, attention_mask, decoder_input_ids, memory_dict, do_generate=False, lm_mask=None):
         '''
         memory_dict:
             - triple_repr:
@@ -999,8 +1004,8 @@ class MultiHopGen(GPT2PreTrainedModel):
             - probs: bsz x L x vocab
             - gate: bsz x L x 1
         '''
-        hidden_states = self.transformer(input_ids, attention_mask = attention_mask, 
-                                                    position_ids = position_ids)[0]
+        hidden_states = self.bart(input_ids, attention_mask = attention_mask, 
+                                                    decoder_input_ids = decoder_input_ids)[0]
 
         if do_generate:
             hidden_states = hidden_states[:, -1, :].unsqueeze(1)

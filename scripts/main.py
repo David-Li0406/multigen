@@ -38,13 +38,14 @@ from optimization import AdamW, WarmupLinearSchedule, WarmupCosineSchedule, Warm
      
 from tokenization_gpt2 import GPT2Tokenizer
 from modeling_gpt2 import MultiHopGen, GPT2Config
+from transformers import BartTokenizer, BartConfig
 
 
 logger = logging.getLogger()
 
 
 MODEL_CLASSES = {
-    'gpt2': (GPT2Config, MultiHopGen, GPT2Tokenizer)
+    'gpt2': (BartConfig, MultiHopGen, BartTokenizer)
 }
 
 
