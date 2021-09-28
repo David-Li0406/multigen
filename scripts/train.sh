@@ -7,7 +7,7 @@ python3 main.py \
 --dev_data_file ${ROOT_PATH}/data/${DATA_TYPE}/dev \
 --test_data_file ${ROOT_PATH}/data/${DATA_TYPE}/test \
 --graph_path 2hops_100_directed_triple_filter.json \
---output_dir ${ROOT_PATH}/models/${DATA_TYPE}/grf-${DATA_TYPE} \
+--output_dir ${ROOT_PATH}/models/${DATA_TYPE}/grf-${DATA_TYPE}-epoch20 \
 --source_length 110 \
 --target_length 110 \
 --model_type gpt2 \
@@ -19,7 +19,7 @@ python3 main.py \
 --seed 42 \
 --evaluate_metrics bleu \
 --overwrite_output_dir \
---num_train_epochs 3 \
+--num_train_epochs 20 \
 --learning_rate 1e-5 \
 --aggregate_method max \
 --alpha 3 \

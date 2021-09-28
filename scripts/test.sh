@@ -1,13 +1,13 @@
 export DATA_TYPE=DG_oxford5.0
 export ROOT_PATH=..
-export DEVICE=1,2
+export DEVICE=0,1
 CUDA_VISIBLE_DEVICES=${DEVICE} \
 python3 main.py \
 --train_data_file ${ROOT_PATH}/data/${DATA_TYPE}/train \
 --dev_data_file ${ROOT_PATH}/data/${DATA_TYPE}/dev \
 --test_data_file ${ROOT_PATH}/data/${DATA_TYPE}/test \
 --graph_path 2hops_100_directed_triple_filter.json \
---output_dir ${ROOT_PATH}/models/${DATA_TYPE}/grf-${DATA_TYPE} \
+--output_dir ${ROOT_PATH}/models/${DATA_TYPE}/grf-${DATA_TYPE}-epoch20 \
 --source_length 110 \
 --target_length 110 \
 --model_type gpt2 \
