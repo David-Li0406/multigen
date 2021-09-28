@@ -36,8 +36,8 @@ from collections import Counter
 
 from optimization import AdamW, WarmupLinearSchedule, WarmupCosineSchedule, WarmupConstantSchedule
      
-from tokenization_gpt2 import GPT2Tokenizer
-from modeling_gpt2 import MultiHopGen, GPT2Config
+# from tokenization_gpt2 import GPT2Tokenizer
+from modeling_gpt2 import MultiHopGen
 from transformers import BartTokenizer, BartConfig
 
 
