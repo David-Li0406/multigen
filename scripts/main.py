@@ -449,6 +449,7 @@ def build_generator(args, dataset):
                     diverse_beam_strength=getattr(args, 'diverse_beam_strength', 0.5),
                     match_source_len=getattr(args, 'match_source_len', False),
                     no_repeat_ngram_size=getattr(args, 'no_repeat_ngram_size', 0),
+                    multi_hop=getattr(args, 'multi_hop', False),
                 )  
     return generator
 

@@ -36,6 +36,7 @@ class SequenceGenerator(object):
         diverse_beam_strength=0.5,
         match_source_len=False,
         no_repeat_ngram_size=0,
+        multi_hop=True,
     ):
         """Generates translations of a given source sentence.
 
@@ -91,6 +92,7 @@ class SequenceGenerator(object):
         self.temperature = temperature
         self.match_source_len = match_source_len
         self.no_repeat_ngram_size = no_repeat_ngram_size
+        self.multi_hop = multi_hop
         self.gpt2_max_length = 1024
 
         assert sampling_topk < 0 or sampling, '--sampling-topk requires --sampling'
@@ -187,8 +189,9 @@ class SequenceGenerator(object):
         tokens_buf = tokens.clone()
         
         tokens[:, 0] = bos_token
-        gates = scores.new(bsz * beam_size, max_len + 2)
-        gates_buf = gates.clone()
+        if self.multi_hop:
+            gates = scores.new(bsz * beam_size, max_len + 2)
+            gates_buf = gates.clone()
         
         attn, attn_buf = None, None
 
@@ -253,7 +256,7 @@ class SequenceGenerator(object):
             assert not tokens_clone.eq(self.eos).any()
             tokens_clone[:, step] = self.eos
             attn_clone = attn.index_select(0, bbsz_idx)[:, :, 1:step+2] if attn is not None else None
-            gates_clone = gates.index_select(0, bbsz_idx)[:, 1:step+2]
+            gates_clone = gates.index_select(0, bbsz_idx)[:, 1:step+2] if self.multi_hoo else None
 
             # compute scores per token position
             pos_scores = scores.index_select(0, bbsz_idx)[:, :step+1]
@@ -291,11 +294,16 @@ class SequenceGenerator(object):
                     else:
                         hypo_attn = None
 
+                    if self.multi_hop:
+                        gates = gates_clone[i]
+                    else:
+                        gates = None
+
                     return {
                         'tokens': tokens_clone[i],
                         'score': score,
                         'attention': hypo_attn,  # src_len x tgt_len
-                        "gates": gates_clone[i],
+                        "gates": gates,
                         'alignment': None,
                         'positional_scores': pos_scores[i],
                     }
@@ -394,7 +402,8 @@ class SequenceGenerator(object):
                     attn_buf = attn.clone()
                 attn[:, :, step + 1].copy_(avg_attn_scores)
             
-            gates[:, step + 1].copy_(out_gate[:, 0, 0])
+            if self.multi_hop:
+                gates[:, step + 1].copy_(out_gate[:, 0, 0])
 
             scores = scores.type_as(lprobs)
             scores_buf = scores_buf.type_as(lprobs)
@@ -482,8 +491,9 @@ class SequenceGenerator(object):
                 if attn is not None:
                     attn = attn.view(bsz, -1)[batch_idxs].view(new_bsz * beam_size, attn.size(1), -1)
                     attn_buf.resize_as_(attn)
-                gates = gates.view(bsz, -1)[batch_idxs].view(new_bsz * beam_size, -1)
-                gates_buf.resize_as_(gates)
+                if self.multi_hop:
+                    gates = gates.view(bsz, -1)[batch_idxs].view(new_bsz * beam_size, -1)
+                    gates_buf.resize_as_(gates)
                 bsz = new_bsz
             else:
                 batch_idxs = None
@@ -552,14 +562,16 @@ class SequenceGenerator(object):
                     out=attn_buf[:, :, :step + 2],
                 )
 
-            torch.index_select(
-                    gates[:, :step + 2], dim=0, index=active_bbsz_idx,
-                    out=gates_buf[:, :step + 2],
-                )
+            if self.multi_hop:
+                torch.index_select(
+                        gates[:, :step + 2], dim=0, index=active_bbsz_idx,
+                        out=gates_buf[:, :step + 2],
+                    )
             # swap buffers
             tokens, tokens_buf = tokens_buf, tokens
             scores, scores_buf = scores_buf, scores
-            gates, gates_buf = gates_buf, gates
+            if self.multi_hop:
+                gates, gates_buf = gates_buf, gates
             if attn is not None:
                 attn, attn_buf = attn_buf, attn
 
@@ -575,7 +587,7 @@ class SequenceGenerator(object):
         for j, hypo in enumerate(finalized):
             hypo = hypo[0]
             hypo_tokens = hypo['tokens']
-            hypo_gates = hypo['gates']
+            # hypo_gates = hypo['gates']
             result_scores.append(hypo['score'])
             if output_text:
                 result_strs.append(self.tokenizer.decode(hypo_tokens.tolist()[:-1]))
